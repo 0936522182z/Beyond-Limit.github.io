@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin:0; padding:20px;
+  background-image: url('admin-background.jpg');
+  background-size: cover;
+}
+.container {
+  max-width:900px;
+  margin:0 auto;
+  background: rgba(255,255,255,0.95);
+  padding:20px;
+  border-radius:20px;
+}
+h1 { text-align:center; }
+.messages { max-height:400px; overflow-y:auto; margin-bottom:15px; }
+.message { padding:10px; margin-bottom:8px; border-radius:10px; background:#f1f1f1; }
+.message .sender { font-weight:bold; }
+select,input { padding:10px; border-radius:10px; border:1px solid #ccc; margin-top:5px; width:100%; box-sizing:border-box;}
+button { background-color:#2ecc71;color:white;border:none;padding:10px 20px;border-radius:10px; cursor:pointer;margin-top:5px;}
+button:hover { background-color:#27ae60;}
+#resetBtn, #resetAllBtn { background-color:#e74c3c; }
+#resetBtn:hover, #resetAllBtn:hover { background-color:#c0392b; }
+.checkbox-container { margin-bottom:8px; padding:5px; background:#f9f9f9; border-radius:8px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+<h1>Admin Panel</h1>
+
+<div class="messages" id="messages"></div>
+
+<select id="selectMessage">
+  <option>-- เลือกข้อความผู้ใช้ --</option>
+</select>
+<input type="text" id="adminReply" placeholder="พิมพ์ข้อความตอบ">
+<button onclick="replyMessage()">ส่งตอบ</button>
+<br>
+<button id="resetBtn" onclick="showResetPopup()">รีแบบเลือกข้อความ</button>
+<button id="resetAllBtn" onclick="resetAll()">รีทั้งหมด</button>
+
+<!-- Popup เลือกข้อความรี -->
+<div id="resetPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+  <div style="background:white; max-width:600px; margin:50px auto; padding:20px; border-radius:15px; max-height:80%; overflow-y:auto;">
+    <h3>เลือกข้อความที่ต้องการลบ</h3>
+    <div id="checkboxList"></div>
+    <button onclick="deleteSelected()">ลบข้อความที่เลือก</button>
+    <button onclick="closePopup()">ยกเลิก</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+const currentAdmin='Admin1';
+
+function getMessages(){ return JSON.parse(localStorage.getItem('messages')||'[]'); }
+function saveMessages(messages){ localStorage.setItem('messages', JSON.stringify(messages)); }
+
+function renderMessages(){
+  const container=document.getElementById('messages');
+  const messages=getMessages();
+  container.innerHTML='';
+  messages.forEach((m)=>{
+    const div=document.createElement('div');
+    div.className='message';
+    div.innerHTML=`<div class="sender">${m.sender}</div><div>${m.text}</div>`;
+    container.appendChild(div);
+  });
+}
+
+function populateSelect(){
+  const select=document.getElementById('selectMessage');
+  const messages=getMessages();
+  select.innerHTML='<option>-- เลือกข้อความผู้ใช้ --</option>';
+  messages.forEach(m=>{
+    if(m.type==='user'){
+      const option=document.createElement('option');
+      option.value=m.id;
+      option.textContent=`ข้อ ${m.id}: ${m.text}`;
+      select.appendChild(option);
+    }
+  });
+}
+
+function replyMessage(){
+  const select=document.getElementById('selectMessage');
+  const reply=document.getElementById('adminReply').value.trim();
+  const selectedId=parseInt(select.value);
+  if(!reply || !selectedId) return alert('กรุณาเลือกข้อความและพิมพ์ตอบ');
+
+  const messages=getMessages();
+  messages.push({id:messages.length+1,sender:currentAdmin,text:reply,type:'admin',replyTo:selectedId});
+  saveMessages(messages);
+  document.getElementById('adminReply').value='';
+  renderMessages();
+  populateSelect();
+}
+
+// ------------------- รีแบบเลือกข้อความ -------------------
+function showResetPopup(){
+  const popup = document.getElementById('resetPopup');
+  const listDiv = document.getElementById('checkboxList');
+  const messages = getMessages().filter(m=>m.type==='user');
+  listDiv.innerHTML='';
+  messages.forEach(m=>{
+    const div = document.createElement('div');
+    div.className='checkbox-container';
+    div.innerHTML=`<input type="checkbox" class="chkMsg" value="${m.id}"> ข้อ ${m.id}: ${m.text}`;
+    listDiv.appendChild(div);
+  });
+  popup.style.display='block';
+}
+
+function closePopup(){ document.getElementById('resetPopup').style.display='none'; }
+
+function deleteSelected(){
+  const checkboxes = document.querySelectorAll('.chkMsg:checked');
+  if(checkboxes.length===0){ alert('กรุณาเลือกข้อความ'); return; }
+  let messages = getMessages();
+  checkboxes.forEach(cb=>{
+    const id=parseInt(cb.value);
+    // ลบข้อความ user
+    messages = messages.filter(m=>!(m.type==='user' && m.id===id));
+    // ลบข้อความ admin ที่ตอบข้อความนั้น
+    messages = messages.filter(m=>!(m.type==='admin' && m.replyTo===id));
+  });
+  saveMessages(messages);
+  renderMessages();
+  populateSelect();
+  closePopup();
+}
+
+// ------------------- รีทั้งหมด -------------------
+function resetAll(){
+  if(!confirm('คุณต้องการลบข้อความทั้งหมดใช่หรือไม่?')) return;
+  localStorage.removeItem('messages');
+  renderMessages();
+  populateSelect();
+}
+
+renderMessages();
+populateSelect();
+</script>
+
+</body>
+</html>
